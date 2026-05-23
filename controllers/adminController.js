@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { formatBookingDates, formatBookingDatesList } = require('../utils/bookingDates');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v2: cloudinary } = require('cloudinary');
@@ -191,7 +192,17 @@ exports.getAllBookings = async (req, res) => {
       ORDER BY b.created_at DESC
     `;
     const result = await db.query(query);
-    res.json(result.rows);
+    res.json(formatBookingDatesList(result.rows));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get booking statuses for dropdown
+exports.getBookingStatuses = async (req, res) => {
+  try {
+    const statuses = ['pending', 'paid', 'cancelled', 'refunded', 'completed'];
+    res.json(statuses);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -207,7 +218,7 @@ exports.updateBookingStatus = async (req, res) => {
       [status, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'Booking not found' });
-    res.json(result.rows[0]);
+    res.json(formatBookingDates(result.rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -232,13 +243,14 @@ exports.getAllCustomers = async (req, res) => {
 
 // Create a new room
 exports.createRoom = async (req, res) => {
-  const { name, price, capacity, description, images, amenities, in_maintenance } = req.body;
+  const { name, price, capacity, description, images, amenities, in_maintenance, quantity } = req.body;
   try {
     const maint = Boolean(in_maintenance);
+    const qty = parseInt(quantity, 10) || 5;
     const result = await db.query(
-      `INSERT INTO rooms (name, price, capacity, description, images, amenities, in_maintenance)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [name, price, capacity, description, images, amenities, maint]
+      `INSERT INTO rooms (name, price, capacity, description, images, amenities, in_maintenance, quantity)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [name, price, capacity, description, images, amenities, maint, qty]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -249,8 +261,9 @@ exports.createRoom = async (req, res) => {
 // Update an existing room
 exports.updateRoom = async (req, res) => {
   const { id } = req.params;
-  const { name, price, capacity, description, images, amenities, in_maintenance } = req.body;
+  const { name, price, capacity, description, images, amenities, in_maintenance, quantity } = req.body;
   const maint = Boolean(in_maintenance);
+  const qty = parseInt(quantity, 10) || 5;
   try {
     // 1. Get current room data to check for deleted images
     const currentRoom = await db.query('SELECT images FROM rooms WHERE id = $1', [id]);
@@ -273,8 +286,8 @@ exports.updateRoom = async (req, res) => {
     // 4. Update Database
     const result = await db.query(
       `UPDATE rooms SET name = $1, price = $2, capacity = $3, description = $4, images = $5, amenities = $6,
-       in_maintenance = $7 WHERE id = $8 RETURNING *`,
-      [name, price, capacity, description, images, amenities, maint, id]
+       in_maintenance = $7, quantity = $8 WHERE id = $9 RETURNING *`,
+      [name, price, capacity, description, images, amenities, maint, qty, id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -302,6 +315,160 @@ exports.deleteRoom = async (req, res) => {
     // 3. Delete from Database
     await db.query('DELETE FROM rooms WHERE id = $1', [id]);
     res.json({ message: 'Room and associated images deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get all payments
+exports.getAllPayments = async (req, res) => {
+  try {
+    const query = `
+      SELECT p.*, b.id as booking_id, b.total_price, b.status as booking_status, b.room_id, b.check_in, b.check_out, b.room_count,
+             u.name as customer_name, u.email as customer_email, u.phone as customer_phone,
+             r.name as room_name
+      FROM payments p
+      JOIN bookings b ON p.booking_id = b.id
+      JOIN users u ON b.user_id = u.id
+      JOIN rooms r ON b.room_id = r.id
+      ORDER BY p.created_at DESC
+    `;
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Update payment status
+exports.updatePaymentStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE payments SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Payment not found' });
+    
+    // Sync booking status with payment status
+    const payment = result.rows[0];
+    const bookingStatusMap = {
+      'pending': 'pending',
+      'completed': 'paid',
+      'failed': 'cancelled'
+    };
+    
+    if (bookingStatusMap[status]) {
+      await db.query('UPDATE bookings SET status = $1 WHERE id = $2', [bookingStatusMap[status], payment.booking_id]);
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Settings Management
+exports.getAllSettings = async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM settings ORDER BY key');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateSetting = async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE settings SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE key = $2 RETURNING *',
+      [value, key]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Setting not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Messages Management
+exports.getAllMessages = async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM messages ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateMessageStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE messages SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Message not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteMessage = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM messages WHERE id = $1', [id]);
+    res.json({ message: 'Message deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Customer Management
+exports.updateCustomer = async (req, res) => {
+  const { id } = req.params;
+  const { name, phone, enabled } = req.body;
+  try {
+    const result = await db.query(
+      'UPDATE users SET name = $1, phone = $2, enabled = $3 WHERE id = $4 RETURNING id, name, email, phone, enabled, role',
+      [name, phone, enabled !== undefined ? enabled : true, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Customer not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteCustomer = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM users WHERE id = $1 AND role = $2', [id, 'user']);
+    res.json({ message: 'Customer deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Public contact message submission
+exports.submitContactMessage = async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  try {
+    const result = await db.query(
+      'INSERT INTO messages (name, email, subject, message, user_id) VALUES ($1, $2, $3, $4, NULL) RETURNING *',
+      [name, email, subject, message]
+    );
+    res.status(201).json({
+      message: 'Message submitted successfully',
+      data: result.rows[0]
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -7,6 +7,8 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
+    role VARCHAR(50) DEFAULT 'user',
+    enabled BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -34,6 +36,7 @@ CREATE TABLE rooms (
     images TEXT[], -- Array of image URLs
     amenities TEXT[], -- Array of amenities
     in_maintenance BOOLEAN NOT NULL DEFAULT FALSE,
+    quantity INT DEFAULT 5,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -45,6 +48,7 @@ CREATE TABLE bookings (
     check_in DATE NOT NULL,
     check_out DATE NOT NULL,
     total_price DECIMAL(10, 2) NOT NULL,
+    room_count INT DEFAULT 1,
     status VARCHAR(50) DEFAULT 'pending', -- pending, paid, cancelled
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -57,6 +61,28 @@ CREATE TABLE payments (
     status VARCHAR(50) DEFAULT 'pending', -- pending, completed, failed
     transaction_id VARCHAR(255),
     amount DECIMAL(10, 2) NOT NULL,
+    slip_image_url TEXT, -- URL ของรูปสลิปหลักฐานการโอนเงิน (เก็บใน Cloudinary)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Settings Table
+CREATE TABLE settings (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(255) UNIQUE NOT NULL,
+    value TEXT,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Messages Table
+CREATE TABLE messages (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    subject VARCHAR(255),
+    message TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'unread', -- unread, read, replied
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

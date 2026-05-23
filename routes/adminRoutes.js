@@ -29,12 +29,22 @@ const upload = multer({
 
 // Public
 router.post('/login', adminController.login);
+router.post('/contact', adminController.submitContactMessage);
 
 // Protected
 router.get('/stats', authMiddleware, adminController.getStats);
 router.get('/bookings', authMiddleware, adminController.getAllBookings);
 router.patch('/bookings/:id/status', authMiddleware, adminController.updateBookingStatus);
 router.get('/customers', authMiddleware, adminController.getAllCustomers);
+router.put('/customers/:id', authMiddleware, adminController.updateCustomer);
+router.delete('/customers/:id', authMiddleware, adminController.deleteCustomer);
+router.get('/payments', authMiddleware, adminController.getAllPayments);
+router.patch('/payments/:id/status', authMiddleware, adminController.updatePaymentStatus);
+router.get('/settings', authMiddleware, adminController.getAllSettings);
+router.put('/settings/:key', authMiddleware, adminController.updateSetting);
+router.get('/messages', authMiddleware, adminController.getAllMessages);
+router.patch('/messages/:id/status', authMiddleware, adminController.updateMessageStatus);
+router.delete('/messages/:id', authMiddleware, adminController.deleteMessage);
 
 // Room Management
 router.post('/rooms', authMiddleware, adminController.createRoom);

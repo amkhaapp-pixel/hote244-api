@@ -35,7 +35,17 @@ async function updateSchema() {
       ADD COLUMN IF NOT EXISTS in_maintenance BOOLEAN NOT NULL DEFAULT FALSE
     `);
 
-    console.log('Schema updated successfully: users + rooms.in_maintenance');
+    await query(`
+      ALTER TABLE rooms
+      ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 5
+    `);
+
+    await query(`
+      ALTER TABLE bookings
+      ADD COLUMN IF NOT EXISTS room_count INT NOT NULL DEFAULT 1
+    `);
+
+    console.log('Schema updated successfully: users + rooms.in_maintenance + rooms.quantity + bookings.room_count');
     process.exit(0);
   } catch (err) {
     console.error('Error updating schema:', err.message);
