@@ -2,7 +2,7 @@ const db = require('../config/db');
 const { formatBookingDates, formatBookingDatesList } = require('../utils/bookingDates');
 
 exports.createBooking = async (req, res) => {
-  const { name, email, phone, roomId, checkIn, checkOut, roomCount: roomCountRaw } = req.body;
+  const { name, email, phone, roomId, checkIn, checkOut, roomCount: roomCountRaw, specialRequests } = req.body;
   const roomCount = Math.max(1, parseInt(roomCountRaw, 10) || 1);
 
   try {
@@ -84,8 +84,8 @@ exports.createBooking = async (req, res) => {
 
     // 4. Create Booking
     const newBooking = await db.query(
-      'INSERT INTO bookings (user_id, room_id, check_in, check_out, total_price, room_count) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [userId, roomId, checkIn, checkOut, totalPrice, roomCount]
+      'INSERT INTO bookings (user_id, room_id, check_in, check_out, total_price, room_count, special_requests) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [userId, roomId, checkIn, checkOut, totalPrice, roomCount, specialRequests || null]
     );
 
     res.status(201).json(formatBookingDates(newBooking.rows[0]));

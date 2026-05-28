@@ -50,6 +50,7 @@ CREATE TABLE bookings (
     total_price DECIMAL(10, 2) NOT NULL,
     room_count INT DEFAULT 1,
     status VARCHAR(50) DEFAULT 'pending', -- pending, paid, cancelled
+    special_requests TEXT, -- ข้อความ Special Requests จากลูกค้า
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

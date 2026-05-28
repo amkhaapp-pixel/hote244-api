@@ -143,6 +143,17 @@ async function migrate() {
       console.log('  (Error updating bookings:', err.message, ')');
     }
 
+    // Add special_requests column to bookings table if it doesn't exist
+    try {
+      await client.query(`
+        ALTER TABLE bookings 
+        ADD COLUMN IF NOT EXISTS special_requests TEXT
+      `);
+      console.log('✓ Added special_requests column to bookings table');
+    } catch (err) {
+      console.log('  (Column may already exist or error occurred:', err.message, ')');
+    }
+
     // Add slip_image_url column to payments table if it doesn't exist
     try {
       await client.query(`

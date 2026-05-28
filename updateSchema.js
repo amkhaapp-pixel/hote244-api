@@ -45,7 +45,12 @@ async function updateSchema() {
       ADD COLUMN IF NOT EXISTS room_count INT NOT NULL DEFAULT 1
     `);
 
-    console.log('Schema updated successfully: users + rooms.in_maintenance + rooms.quantity + bookings.room_count');
+    await query(`
+      ALTER TABLE bookings
+      ADD COLUMN IF NOT EXISTS special_requests TEXT
+    `);
+
+    console.log('Schema updated successfully: users + rooms.in_maintenance + rooms.quantity + bookings.room_count + bookings.special_requests');
     process.exit(0);
   } catch (err) {
     console.error('Error updating schema:', err.message);
