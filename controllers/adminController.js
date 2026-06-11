@@ -77,6 +77,25 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.verifySession = async (req, res) => {
+  try {
+    const admin = req.currentAdmin;
+
+    res.json({
+      authenticated: true,
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+      }
+    });
+  } catch (err) {
+    console.error('Verify admin session error:', err);
+    res.status(500).json({ message: 'Failed to verify admin session' });
+  }
+};
+
 
 
 /** Percent change vs baseline; baseline 0 and current>0 → 100. */

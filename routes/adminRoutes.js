@@ -4,6 +4,7 @@ const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middleware/authMiddleware');
+const adminOnly = require('../middleware/adminOnly');
 
 // Cloudinary config
 cloudinary.config({
@@ -32,27 +33,30 @@ router.post('/login', adminController.login);
 router.post('/contact', adminController.submitContactMessage);
 
 // Protected
-router.get('/stats', authMiddleware, adminController.getStats);
-router.get('/bookings', authMiddleware, adminController.getAllBookings);
-router.patch('/bookings/:id/status', authMiddleware, adminController.updateBookingStatus);
-router.get('/customers', authMiddleware, adminController.getAllCustomers);
-router.put('/customers/:id', authMiddleware, adminController.updateCustomer);
-router.delete('/customers/:id', authMiddleware, adminController.deleteCustomer);
-router.get('/payments', authMiddleware, adminController.getAllPayments);
-router.patch('/payments/:id/status', authMiddleware, adminController.updatePaymentStatus);
-router.get('/settings', authMiddleware, adminController.getAllSettings);
-router.put('/settings/:key', authMiddleware, adminController.updateSetting);
-router.get('/messages', authMiddleware, adminController.getAllMessages);
-router.patch('/messages/:id/status', authMiddleware, adminController.updateMessageStatus);
-router.delete('/messages/:id', authMiddleware, adminController.deleteMessage);
+router.use(authMiddleware, adminOnly);
+
+router.get('/verify', adminController.verifySession);
+router.get('/stats', adminController.getStats);
+router.get('/bookings', adminController.getAllBookings);
+router.patch('/bookings/:id/status', adminController.updateBookingStatus);
+router.get('/customers', adminController.getAllCustomers);
+router.put('/customers/:id', adminController.updateCustomer);
+router.delete('/customers/:id', adminController.deleteCustomer);
+router.get('/payments', adminController.getAllPayments);
+router.patch('/payments/:id/status', adminController.updatePaymentStatus);
+router.get('/settings', adminController.getAllSettings);
+router.put('/settings/:key', adminController.updateSetting);
+router.get('/messages', adminController.getAllMessages);
+router.patch('/messages/:id/status', adminController.updateMessageStatus);
+router.delete('/messages/:id', adminController.deleteMessage);
 
 // Room Management
-router.post('/rooms', authMiddleware, adminController.createRoom);
-router.put('/rooms/:id', authMiddleware, adminController.updateRoom);
-router.delete('/rooms/:id', authMiddleware, adminController.deleteRoom);
+router.post('/rooms', adminController.createRoom);
+router.put('/rooms/:id', adminController.updateRoom);
+router.delete('/rooms/:id', adminController.deleteRoom);
 
 // Image Upload to Cloudinary (up to 5 images at once)
-router.post('/upload-images', authMiddleware, upload.array('images', 5), async (req, res) => {
+router.post('/upload-images', upload.array('images', 5), async (req, res) => {
   try {
     const uploadPromises = req.files.map((file) => {
       return new Promise((resolve, reject) => {
